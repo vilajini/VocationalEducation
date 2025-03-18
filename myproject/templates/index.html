@@ -1,0 +1,129 @@
+{% extends 'placeholder.html' %}
+
+{% block content %}
+<!-- Main Content -->
+<div class="container main-container">
+    <div class="card text-center">
+        <h2>Welcome to the Domestic Electrician Viva Question Generator</h2>
+        <p>Test your knowledge with practice quizzes and an AI-powered chat helper.</p>
+        <br><br>
+        <div class="text-center">
+            <h3>Select Difficulty Level</h3>
+            <label>
+                <input type="radio" name="difficulty" value="high"> Advanced
+            </label>
+            <label>
+                <input type="radio" name="difficulty" value="medium" checked> Medium
+            </label>
+            <label>
+                <input type="radio" name="difficulty" value="low"> Basic
+            </label>
+        </div>
+        <br><br>
+        <button class="btn btn-primary" id="startVivaBtn" onclick="generateQuestions()">Start Viva</button>
+
+        <form id="quizForm">
+            <div id="questionsContainer" class="text-center"></div>
+            <div class="text-center">
+                <button type="button" id="submitAnswersBtn" class="btn btn-success mt-3" onclick="submitAnswers()" style="display: none;">Submit Answers</button>
+            </div>
+        </form>
+
+        <div id="resultContainer" class="text-center"></div>
+
+    </div>
+</div>
+
+<script>
+// Generate questions through AJAX
+function generateQuestions() {
+    let difficulty = $('input[name="difficulty"]:checked').val();  // Get selected difficulty level
+    $.ajax({
+        url: "/generate_questions",
+        type: "POST",
+        contentType: "application/json",
+        data: JSON.stringify({ difficulty: difficulty }), // Send difficulty level
+        success: function(response) {
+            alert(response.message);
+            document.getElementById("startVivaBtn").style.display = "none"; // Hide Start Viva button
+            fetchQuestions();
+        },
+        error: function() {
+            alert("Error generating questions.");
+        }
+    });
+}
+
+
+// Fetch questions from the server
+function fetchQuestions() {
+    $.ajax({
+        url: "/get_questions",
+        type: "GET",
+        success: function(response) {
+            let container = document.getElementById("questionsContainer");
+            container.innerHTML = "";
+            response.questions.forEach((q, index) => {
+                let questionHtml = `<div class='card p-3 mt-3'>
+                    <p><strong>Question ${index + 1}:</strong> ${q.question}</p>
+                    <div class="question-options">
+                        ${q.options.map(option => `
+                            <div>
+                                <input type='radio' name='q${index}' value='${option}'> ${option}
+                            </div>`).join('')}
+                    </div>
+                </div>`;
+                container.innerHTML += questionHtml;
+            });
+
+            // Show the submit button after questions are generated
+            document.getElementById("submitAnswersBtn").style.display = "inline-block";
+        },
+        error: function() {
+            alert("Error fetching questions.");
+        }
+    });
+}
+
+// Submit answers and show result
+function submitAnswers() {
+    let answers = {};
+    document.querySelectorAll("#quizForm input[type='radio']:checked").forEach(input => {
+        answers[input.name.replace("q", "")] = input.value;
+    });
+
+    $.ajax({
+        url: "/submit_answers",
+        type: "POST",
+        contentType: "application/json",
+        data: JSON.stringify({ answers: answers }),
+        success: function(response) {
+            // Hide question container and submit button
+            document.getElementById("questionsContainer").style.display = "none";
+            document.getElementById("submitAnswersBtn").style.display = "none";
+            document.getElementById("quizForm").style.display = "none";
+
+            // Display result
+            let resultHtml = `<h4>Results:</h4>
+                <p>Correct: ${response.correct_count}</p>
+                <p>Incorrect: ${response.incorrect_count}</p>
+                <p>Accuracy: ${response.accuracy.toFixed(2)}%</p>`;
+
+            response.results.forEach(res => {
+                resultHtml += `<div class="card p-2 mt-2 ${res.result === "Correct" ? 'bg-success text-white' : 'bg-danger text-white'}">
+                    <p><strong>Question:</strong> ${res.question}</p>
+                    <p><strong>Your Answer:</strong> ${res.user_answer}</p>
+                    <p><strong>Correct Answer:</strong> ${res.correct_answer}</p>
+                    <p><strong>Result:</strong> ${res.result}</p>
+                </div>`;
+            });
+
+            document.getElementById("resultContainer").innerHTML = resultHtml;
+        },
+        error: function() {
+            alert("Error submitting answers.");
+        }
+    });
+}
+</script>
+{% endblock %}

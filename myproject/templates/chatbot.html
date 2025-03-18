@@ -1,0 +1,105 @@
+{% extends 'placeholder.html' %}
+
+{% block content %}
+     <div class="container">
+        <div id="chat-container" class="d-flex flex-column align-items-center justify-content-center" style="height: 100vh; max-width: 800px; margin: 0 auto;">
+            <div id="chat-history" class="border p-4 mb-4" style="height: 400px; overflow-y: scroll; width: 100%; background-color: #f8f9fa; border-radius: 10px; font-size: 18px;">
+            </div>
+
+            <div class="d-flex justify-content-center mb-3">
+                <label class="me-2">Reply Language:</label>
+                <div class="form-check form-check-inline">
+                    <input class="form-check-input" type="radio" name="language" id="english" value="English" checked>
+                    <label class="form-check-label" for="english">English</label>
+                </div>
+                <div class="form-check form-check-inline">
+                    <input class="form-check-input" type="radio" name="language" id="tamil" value="Tamil">
+                    <label class="form-check-label" for="tamil">Tamil</label>
+                </div>
+                <div class="form-check form-check-inline">
+                    <input class="form-check-input" type="radio" name="language" id="sinhala" value="Sinhala">
+                    <label class="form-check-label" for="sinhala">Sinhala</label>
+                </div>
+            </div>
+
+            <div class="d-flex w-100 mb-3">
+                <input type="text" id="user-input" class="form-control me-3" placeholder="Type your message here..." style="flex-grow: 1; padding: 15px; font-size: 18px; border-radius: 10px;">
+                <button id="send-button" class="btn btn-primary ms-3" style="border-radius: 10px; font-size: 18px; padding: 15px 30px;">
+                    <i class="fas fa-paper-plane"></i> Send
+                </button>
+            </div>
+
+            <div class="d-flex justify-content-center">
+                <button id="voice-button" class="btn btn-secondary" style="border-radius: 10px; font-size: 18px; padding: 15px 30px;">
+                    <i class="fas fa-microphone"></i> Voice
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        $(document).ready(function() {
+            // Function to send a message (either text or voice)
+            function sendMessage(message, language) {
+                if (message.trim() === "") return;
+
+                // Display user's message in chat history
+                $("#chat-history").append("<div class='user-message mb-3' style='font-size: 18px; color: black; background-color: #e0f7fa; padding: 10px; border-radius: 10px;'><p><strong>You:</strong> " + message + "</p></div>");
+                $("#user-input").val("");  // Clear the input field
+
+                // Send the message to Flask
+                $.ajax({
+                    type: "POST",
+                    url: "/chatbot",
+                    contentType: "application/json",
+                    data: JSON.stringify({
+                        message: message,
+                        language: language
+                    }),
+                    success: function(response) {
+                        // Display bot's response
+                        $("#chat-history").append("<div class='bot-message mb-3' style='font-size: 18px; color: black; background-color: #f1f8e9; padding: 10px; border-radius: 10px;'><p><strong>Bot:</strong> " + response.message + "</p></div>");
+                        $('#chat-history').scrollTop($('#chat-history')[0].scrollHeight); // Scroll to bottom
+                    },
+                    error: function(xhr, status, error) {
+                        console.error("Error details:", xhr.responseText);
+                        alert("Error sending the message: " + status + " " + error);
+                    }
+                });
+            }
+
+            // Handle send button click
+            $("#send-button").click(function() {
+                const userMessage = $("#user-input").val();
+                const selectedLanguage = $("input[name='language']:checked").val(); // Get selected language
+                sendMessage(userMessage, selectedLanguage);
+            });
+
+            // Handle Enter key press
+            $("#user-input").keypress(function(event) {
+                if (event.which === 13) { // Enter key pressed
+                    $("#send-button").click();
+                }
+            });
+
+            // Handle voice recognition
+            let recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
+            recognition.continuous = false;
+            recognition.interimResults = false;
+            recognition.lang = "en-US";
+
+            $("#voice-button").click(function() {
+                recognition.start();
+            });
+
+            recognition.onresult = function(event) {
+                let transcript = event.results[0][0].transcript;
+                $("#user-input").val(transcript);
+            };
+
+            recognition.onerror = function(event) {
+                console.error("Speech Recognition Error: ", event.error);
+            };
+        });
+    </script>
+{% endblock %}
